@@ -384,6 +384,27 @@ class Api(object):
         self._bearer_token = None
         self.__auth = None  # for request upgrade
 
+    def Get30DaySearch(self,
+                       query,
+                       tag=None,
+                       fromDate=None,
+                       toDate=None,
+                       maxResults=None,
+                       next=None):
+
+        url = '%s/tweets/search/30day/:label.json' % self.base_url
+        parameters = {}
+
+        parameters["query"] = query
+
+        resp = self._RequestUrl(url, 'POST', data=parameters)
+
+        data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
+
+        return data
+        #else:
+        #    return [Status.NewFromJsonDict(x) for x in data.get('statuses', '')]
+
     def GetSearch(self,
                   term=None,
                   raw_query=None,
@@ -440,7 +461,7 @@ class Api(object):
               >>> # or:
               >>> api.GetSearch(geocode=("37.781157", "-122.398720", "1mi"))
           count (int, optional):
-            Number of results to return.  Default is 15 and maxmimum that
+            Number of results to return.  Default is 15 and maximum that
             Twitter returns is 100 irrespective of what you type in.
           lang (str, optional):
             Language for results as ISO 639-1 code.  Default is None
