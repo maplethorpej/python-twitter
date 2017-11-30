@@ -399,15 +399,15 @@ class Api(object):
             env = 'development'
 
         url = '{0}/tweets/search/30day/{1}.json'.format(self.base_url, env)
-        parameters = {}
-
-        parameters["query"] = query
+        parameters = {
+            "q": enf_type('query', str, query)
+        }
 
         resp = self._RequestUrl(url, 'POST', data=parameters)
 
-        data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
+        # data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
-        return data
+        return resp
         #else:
         #    return [Status.NewFromJsonDict(x) for x in data.get('statuses', '')]
 
