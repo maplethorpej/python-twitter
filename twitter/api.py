@@ -390,9 +390,15 @@ class Api(object):
                        fromDate=None,
                        toDate=None,
                        maxResults=None,
-                       next=None):
+                       next=None,
+                       env=None):
 
-        url = '%s/tweets/search/30day/:label.json' % self.base_url
+        # Twitter uses environments for tracking rate limits,
+        # isolate usage, apply rules, etc.
+        if env is None:
+            env = 'development'
+
+        url = '{0}/tweets/search/30day/{1}.json'.format(self.base_url, env)
         parameters = {}
 
         parameters["query"] = query
