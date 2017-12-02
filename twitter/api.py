@@ -159,7 +159,8 @@ class Api(object):
                  timeout=None,
                  sleep_on_rate_limit=False,
                  tweet_mode='compat',
-                 proxies=None):
+                 proxies=None,
+                 environment=None):
         """Instantiate a new twitter.Api object.
 
         Args:
@@ -241,6 +242,10 @@ class Api(object):
         self.tweet_mode = tweet_mode
         self.proxies = proxies
 
+        # Twitter uses environments for tracking rate limits,
+        # isolate usage, apply rules, etc.
+        self.environment = environment
+
         if base_url is None:
             self.base_url = 'https://api.twitter.com/1.1'
         else:
@@ -265,8 +270,7 @@ class Api(object):
                 "strongly advised to increase it above 16384"
             ))
 
-        if (consumer_key and not
-           (application_only_auth or all([access_token_key, access_token_secret]))):
+        if consumer_key and not (application_only_auth or all([access_token_key, access_token_secret])):
             raise TwitterError({'message': "Missing oAuth Consumer Key or Access Token"})
 
         self.SetCredentials(consumer_key, consumer_secret, access_token_key, access_token_secret,
@@ -390,26 +394,30 @@ class Api(object):
                        fromDate=None,
                        toDate=None,
                        maxResults=None,
-                       next=None,
-                       env=None):
+                       next=None):
 
-        # Twitter uses environments for tracking rate limits,
-        # isolate usage, apply rules, etc.
-        if env is None:
-            env = 'development'
+        url = '{0}/tweets/search/30day/{1}.json'.format(self.base_url, self.environment)
+        params = {"query": enf_type('query', str, query)}
 
-        url = '{0}/tweets/search/30day/{1}.json'.format(self.base_url, env)
-        parameters = {
-            "q": enf_type('query', str, query)
-        }
+        if maxResults:
+            params["maxResults"] = maxResults
 
-        resp = self._RequestUrl(url, 'POST', data=parameters)
+        if tag:
+            params["tag"] = tag
 
-        # data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
+        if fromDate:
+            params["fromDate"] = fromDate
 
-        return resp
-        #else:
-        #    return [Status.NewFromJsonDict(x) for x in data.get('statuses', '')]
+        if toDate:
+            params["toDate"] = toDate
+
+        if next:
+            params["next"] = next
+
+        params = json.dumps(params)
+        response = requests.post(url, data=params, auth=self.__auth, timeout=self._timeout, proxies=self.proxies)
+
+        return response.json()
 
     def GetSearch(self,
                   term=None,
@@ -545,9 +553,9 @@ class Api(object):
 
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
         if return_json:
-          return data
+            return data
         else:
-          return [Status.NewFromJsonDict(x) for x in data.get('statuses', '')]
+            return [Status.NewFromJsonDict(x) for x in data.get('statuses', '')]
 
     def GetUsersSearch(self,
                        term=None,
@@ -1553,14 +1561,16 @@ class Api(object):
 
         if len(words) == 1 and not is_url(words[0]):
             if len(words[0]) > CHARACTER_LIMIT:
-                raise TwitterError({"message": "Unable to split status into tweetable parts. Word was: {0}/{1}".format(len(words[0]), char_lim)})
+                raise TwitterError({"message": "Unable to split status into tweetable parts. Word was: {0}/{1}".format(
+                    len(words[0]), char_lim)})
             else:
                 tweets.append(words[0])
                 return tweets
 
         for word in words:
             if len(word) > char_lim:
-                raise TwitterError({"message": "Unable to split status into tweetable parts. Word was: {0}/{1}".format(len(word), char_lim)})
+                raise TwitterError({"message": "Unable to split status into tweetable parts. Word was: {0}/{1}".format(
+                    len(word), char_lim)})
             new_len = line_length
 
             if is_url(word):
@@ -2927,9 +2937,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return [User.NewFromJsonDict(u) for u in data]
+            return [User.NewFromJsonDict(u) for u in data]
 
     def GetUser(self,
                 user_id=None,
@@ -2967,9 +2977,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return User.NewFromJsonDict(data)
+            return User.NewFromJsonDict(data)
 
     def GetDirectMessages(self,
                           since_id=None,
@@ -3041,9 +3051,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return [DirectMessage.NewFromJsonDict(x) for x in data]
+            return [DirectMessage.NewFromJsonDict(x) for x in data]
 
     def GetSentDirectMessages(self,
                               since_id=None,
@@ -3101,9 +3111,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return [DirectMessage.NewFromJsonDict(x) for x in data]
+            return [DirectMessage.NewFromJsonDict(x) for x in data]
 
     def PostDirectMessage(self,
                           text,
@@ -3136,9 +3146,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return DirectMessage.NewFromJsonDict(data)
+            return DirectMessage.NewFromJsonDict(data)
 
     def DestroyDirectMessage(self, message_id, include_entities=True, return_json=False):
         """Destroys the direct message specified in the required ID parameter.
@@ -3166,9 +3176,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return DirectMessage.NewFromJsonDict(data)
+            return DirectMessage.NewFromJsonDict(data)
 
     def CreateFriendship(self, user_id=None, screen_name=None, follow=True):
         """Befriends the user specified by the user_id or screen_name.
@@ -3357,9 +3367,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return [UserStatus.NewFromJsonDict(x) for x in data]
+            return [UserStatus.NewFromJsonDict(x) for x in data]
 
     def IncomingFriendship(self,
                            cursor=None,
@@ -3577,9 +3587,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return [Status.NewFromJsonDict(x) for x in data]
+            return [Status.NewFromJsonDict(x) for x in data]
 
     def GetMentions(self,
                     count=None,
@@ -3643,9 +3653,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return [Status.NewFromJsonDict(x) for x in data]
+            return [Status.NewFromJsonDict(x) for x in data]
 
     @staticmethod
     def _IDList(list_id, slug, owner_id, owner_screen_name):
@@ -3875,9 +3885,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return User.NewFromJsonDict(data)
+            return User.NewFromJsonDict(data)
 
     def GetSubscriptions(self,
                          user_id=None,
@@ -3927,9 +3937,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return [List.NewFromJsonDict(x) for x in data['lists']]
+            return [List.NewFromJsonDict(x) for x in data['lists']]
 
     def GetMemberships(self,
                        user_id=None,
@@ -3989,9 +3999,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return [List.NewFromJsonDict(x) for x in data['lists']]
+            return [List.NewFromJsonDict(x) for x in data['lists']]
 
     def GetListsList(self,
                      screen_name=None,
@@ -4034,9 +4044,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return [List.NewFromJsonDict(x) for x in data]
+            return [List.NewFromJsonDict(x) for x in data]
 
     def GetListTimeline(self,
                         list_id=None,
@@ -4114,9 +4124,9 @@ class Api(object):
         data = self._ParseAndCheckTwitter(resp.content.decode('utf-8'))
 
         if return_json:
-          return data
+            return data
         else:
-          return [Status.NewFromJsonDict(x) for x in data]
+            return [Status.NewFromJsonDict(x) for x in data]
 
     def GetListMembersPaged(self,
                             list_id=None,
